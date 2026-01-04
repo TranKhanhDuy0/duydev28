@@ -4,8 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:0
 ENV PORT=8080
 
-# Cài GUI nhẹ + noVNC + cloudflared
 RUN apt update && apt install -y \
+    xvfb \
     openbox \
     xterm \
     x11vnc \
@@ -18,7 +18,6 @@ RUN apt update && apt install -y \
     && chmod +x /usr/local/bin/cloudflared \
     && apt clean
 
-# noVNC index
 RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
