@@ -1,43 +1,38 @@
 FROM ubuntu:22.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV DISPLAY=:0
-
-# ===== CÀI GÓI CẦN THIẾT =====
-RUN apt update && apt install -y \
-    xvfb openbox xrdp dbus-x11 sudo \
-    wget gnupg ca-certificates \
+# Cài gói cơ bản
+RUN apt-get update && apt-get install -y \
+    xfce4 xfce4-goodies \
+    xrdp \
     supervisor \
-    && rm -rf /var/lib/apt/lists/*
+    wget curl unzip \
+    dbus-x11 \
+    xvfb \
+    x11vnc \
+    firefox \
+    google-chrome-stable \
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ===== CÀI GOOGLE CHROME =====
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
-    > /etc/apt/sources.list.d/google-chrome.list && \
-    apt update && apt install -y google-chrome-stable
+# Tạo user duydev
+RUN useradd -m -s /bin/bash duydev && echo "duydev:@1U2I3o4p" | chpasswd
 
-# ===== TẠO USER =====
-RUN useradd -m duydev && \
-    echo "duydev:@1U2I3o4p" | chpasswd && \
-    adduser duydev sudo
+# XRDP config
+RUN sed -i 's/3389/3389/' /etc/xrdp/xrdp.ini
+RUN echo "exec startxfce4" > /etc/xrdp/startwm.sh
+RUN chmod +x /etc/xrdp/startwm.sh
 
-# ===== XSESSION =====
-RUN echo "openbox-session" > /home/duydev/.xsession && \
-    chown duydev:duydev /home/duydev/.xsession && \
-    chmod 644 /home/duydev/.xsession
-
-# ===== FIX XAUTHORITY (QUAN TRỌNG) =====
-RUN rm -f /home/duydev/.Xauthority && \
-    touch /home/duydev/.Xauthority && \
-    chown duydev:duydev /home/duydev/.Xauthority && \
-    chmod 600 /home/duydev/.Xauthority
-
-# ===== XRDP CONFIG =====
-RUN sed -i 's/port=3389/port=58906/' /etc/xrdp/xrdp.ini
-
-# ===== SUPERVISOR =====
+# Supervisor config
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 58906
+# xsession
+RUN mkdir -p /home/duydev && chown duydev:duydev /home/duydev
+COPY .xsession /home/duydev/.xsession
+RUN chown duydev:duydev /home/duydev/.xsession
+RUN chmod +x /home/duydev/.xsession
+
+# Set environment
+ENV DISPLAY=:10
+EXPOSE 3389
 
 CMD ["/usr/bin/supervisord", "-n"]
