@@ -1,41 +1,38 @@
-# Base image
 FROM ubuntu:22.04
 
-# Set environment
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:0
+ENV USER=duydev
+ENV PASS=@1U2I3o4p
 
-# Cài gói cơ bản với Chromium thay Chrome
-RUN apt-get update && apt-get install -y \
-    xfce4 xfce4-goodies \
-    xrdp \
-    supervisor \
-    wget curl unzip \
-    dbus-x11 \
+# Cài gói cần thiết (nhẹ)
+RUN apt update && apt install -y \
+    ubuntu-mate-core \
     xvfb \
     x11vnc \
-    firefox \
+    novnc \
+    websockify \
     chromium-browser \
-    --no-install-recommends && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    dbus-x11 \
+    supervisor \
+    sudo \
+    && apt clean && rm -rf /var/lib/apt/lists/*
 
-# Tạo user duydev
-RUN useradd -m -s /bin/bash duydev && echo "duydev:@1U2I3o4p" | chpasswd
-RUN mkdir -p /home/duydev && chown duydev:duydev /home/duydev
+# Tạo user
+RUN useradd -m -s /bin/bash $USER \
+    && echo "$USER:$PASS" | chpasswd \
+    && usermod -aG sudo $USER
 
-# Cấu hình XRDP để dùng XFCE
-RUN echo "exec startxfce4" > /etc/xrdp/startwm.sh
-RUN chmod +x /etc/xrdp/startwm.sh
+# Supervisor config
+RUN mkdir -p /etc/supervisor/conf.d
 
-# Copy supervisord config (bắt buộc phải có file này trong folder build)
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN printf "[supervisord]\nnodaemon=true\n\n\
+[program:xvfb]\ncommand=/usr/bin/Xvfb :0 -screen 0 1280x720x24\n\n\
+[program:mate]\ncommand=/usr/bin/mate-session\nuser=%s\nenvironment=DISPLAY=:0\n\n\
+[program:x11vnc]\ncommand=/usr/bin/x11vnc -display :0 -forever -shared -nopw -rfbport 5900\n\n\
+[program:novnc]\ncommand=/usr/share/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 8080\n" "$USER" \
+> /etc/supervisor/conf.d/supervisord.conf
 
-# Tạo .xsession mặc định nếu chưa có
-RUN echo "startxfce4" > /home/duydev/.xsession
-RUN chown duydev:duydev /home/duydev/.xsession
-RUN chmod +x /home/duydev/.xsession
+EXPOSE 8080
 
-# Expose XRDP port
-EXPOSE 3389
-
-# Start supervisord
-CMD ["/usr/bin/supervisord", "-n"]
+CMD ["/usr/bin/supervisord","-c","/etc/supervisor/conf.d/supervisord.conf"]
