@@ -1,50 +1,43 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:0
 
-# Base
+# ===== CÀI GÓI CẦN THIẾT =====
 RUN apt update && apt install -y \
+    xvfb openbox xrdp dbus-x11 sudo \
+    wget gnupg ca-certificates \
     supervisor \
-    xvfb \
-    xrdp \
-    openbox \
-    dbus-x11 \
-    sudo \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libnss3 \
-    libxss1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    x11-xserver-utils \
-    nano \
     && rm -rf /var/lib/apt/lists/*
 
-# Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/chrome.list && \
-    apt update && apt install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*
+# ===== CÀI GOOGLE CHROME =====
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+    > /etc/apt/sources.list.d/google-chrome.list && \
+    apt update && apt install -y google-chrome-stable
 
-# User (KHÔNG ROOT)
-RUN useradd -m duy && echo "duy:123456" | chpasswd && adduser duy sudo
+# ===== TẠO USER =====
+RUN useradd -m duydev && \
+    echo "duydev:@1U2I3o4p" | chpasswd && \
+    adduser duydev sudo
 
-# XRDP config
-RUN sed -i 's/^port=.*/port=3389/' /etc/xrdp/xrdp.ini
+# ===== XSESSION =====
+RUN echo "openbox-session" > /home/duydev/.xsession && \
+    chown duydev:duydev /home/duydev/.xsession && \
+    chmod 644 /home/duydev/.xsession
 
-# X session
-RUN echo "openbox-session" > /home/duy/.xsession && \
-    chown duy:duy /home/duy/.xsession
+# ===== FIX XAUTHORITY (QUAN TRỌNG) =====
+RUN rm -f /home/duydev/.Xauthority && \
+    touch /home/duydev/.Xauthority && \
+    chown duydev:duydev /home/duydev/.Xauthority && \
+    chmod 600 /home/duydev/.Xauthority
 
-# startwm FIX display 0
-RUN printf '#!/bin/sh\nexport DISPLAY=:0\nexport XDG_SESSION_TYPE=x11\nunset DBUS_SESSION_BUS_ADDRESS\nexec openbox-session\n' > /etc/xrdp/startwm.sh && \
-    chmod +x /etc/xrdp/startwm.sh
+# ===== XRDP CONFIG =====
+RUN sed -i 's/port=3389/port=58906/' /etc/xrdp/xrdp.ini
 
-# Supervisor
+# ===== SUPERVISOR =====
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 3389
+EXPOSE 58906
 
-CMD ["/usr/bin/supervisord","-n"]
+CMD ["/usr/bin/supervisord", "-n"]
